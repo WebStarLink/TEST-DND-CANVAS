@@ -8,10 +8,8 @@ const mainCtx = mainCanvas.getContext("2d");
 const circleCtx = circleCanvas.getContext("2d");
 const squareCtx = squareCanvas.getContext("2d");
 
-const shapes = [
-  { type: "circle", x: 100, y: 100 },
-  { type: "square", x: 200, y: 200 },
-];
+const lsShapes = JSON.parse(localStorage.getItem("shapes"));
+const shapes = lsShapes ? lsShapes : [];
 
 let activeShape;
 
@@ -29,9 +27,56 @@ const draw = {
   circleSelection: drawCircleSelection,
   squareSelection: drawSquareSelection,
 };
+
 render();
 makeDraggable(circleCanvas);
 makeDraggable(squareCanvas);
+
+document.body.onkeydown = ({ key }) => {
+  if (key === "Delete" && activeShape) {
+    shapes.pop();
+    activeShape = null;
+    save();
+    render();
+  }
+};
+
+mainCanvas.onmousedown = ({ offsetX, offsetY }) => {
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    const shape = shapes[i];
+    if (isInShape(offsetX, offsetY, shape)) {
+      activeShape = shape;
+      shapes.splice(i, 1);
+      shapes.push(shape);
+      save();
+      render();
+      const shapeTouchX = offsetX - shape.x;
+      const shapeTouchY = offsetY - shape.y;
+
+      window.onmousemove = (event) => {
+        console.log("SHAPE", shape.x + "x" + shape.y);
+        console.log("CURSOR", offsetX + "x" + offsetY);
+        shape.x = event.pageX - 212 - shapeTouchX;
+        shape.y = event.pageY - 52 - shapeTouchY;
+        save();
+        render();
+      };
+      window.onmouseup = () => {
+        if (isOffLimit(shape.x, shape.y)) {
+          shapes.pop();
+          save();
+          render();
+        }
+        window.onmousemove = null;
+      };
+
+      return;
+    }
+  }
+  activeShape = null;
+  save();
+  render();
+};
 
 function makeDraggable(shapeCanvas) {
   shapeCanvas.onmousedown = ({ offsetX, offsetY }) => {
@@ -51,21 +96,6 @@ function makeDraggable(shapeCanvas) {
   };
 }
 
-mainCanvas.onclick = ({ offsetX, offsetY }) => {
-  for (let i = shapes.length - 1; i >= 0; i--) {
-    const shape = shapes[i];
-    if (isInShape(offsetX, offsetY, shape)) {
-      activeShape = shape;
-      shapes.splice(i, 1);
-      shapes.push(shape);
-      render();
-      return;
-    }
-  }
-  activeShape = null;
-  render();
-};
-
 function isInShape(pointX, pointY, shape) {
   const { type, x, y } = shape;
   if (type === "square") {
@@ -76,19 +106,18 @@ function isInShape(pointX, pointY, shape) {
   }
 }
 
-function addShape(type, x, y) {
-  if (
-    x < 0 ||
-    x > mainCanvas.width - 100 ||
-    y < 0 ||
-    y > mainCanvas.height - 100
-  ) {
-    return;
-  }
+function isOffLimit(x, y) {
+  return (
+    x < 0 || x > mainCanvas.width - 100 || y < 0 || y > mainCanvas.height - 100
+  );
+}
 
+function addShape(type, x, y) {
+  if (isOffLimit(x, y)) return;
   const shape = { type, x, y };
   shapes.push(shape);
   activeShape = shape;
+  save();
   render();
 }
 
@@ -153,3 +182,11 @@ function render() {
   mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
   shapes.forEach(drawShape);
 }
+
+function save() {
+  localStorage.setItem("shapes", JSON.stringify(shapes));
+}
+
+// Load func - local read
+// save func - write loca
+//update func = save = render
